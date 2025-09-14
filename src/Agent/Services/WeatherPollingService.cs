@@ -6,6 +6,7 @@ namespace Agent.Services;
 
 public class WeatherPollingService(ILogger<WeatherPollingService> logger, IConfiguration config, AgentStatus status) : BackgroundService
 {
+    private readonly ILogger<WeatherPollingService> _logger = logger;
     private readonly string _hubUrl = config["CoreHubUrl"] ?? "http://localhost:5100/hubs/resources";
     private readonly string _agentId = config["Agent:AgentId"] ?? $"agent-{Guid.NewGuid():N}";
     private readonly string _agentName = config["Agent:Name"] ?? "Weather Agent";
@@ -88,8 +89,56 @@ public class WeatherPollingService(ILogger<WeatherPollingService> logger, IConfi
             }
         };
 
-        await _connection.StartAsync(ct);
-        status.SetState("Connected", $"Connected to {_hubUrl}");
+    await _connection.StartAsync(ct);
+    status.SetState("Connected", $"Connected to {_hubUrl}");
+    _logger.LogInformation("Agent connected to {HubUrl}", _hubUrl);
+
+        // Server -> Agent requests
+        _connection.On<string, string>("RequestCityDetails", async (correlationId, cityId) =>
+        {
+            try
+            {
+                var (name, temp) = GetCityInfo(cityId);
+                var html = $"<div><h4>{name}</h4><p>City ID: <code>{cityId}</code></p><p>Temperature: <strong>{temp:0.0}°C</strong></p></div>";
+                await _connection!.InvokeAsync("ProvideCityDetails", correlationId, html);
+            }
+            catch (Exception ex)
+            {
+                var html = $"<div class=\"alert alert-danger\">Error: {System.Net.WebUtility.HtmlEncode(ex.Message)}</div>";
+                await _connection!.InvokeAsync("ProvideCityDetails", correlationId, html);
+            }
+        });
+
+        _connection.On<string, string>("PerformSave", async (correlationId, payload) =>
+        {
+            var ok = false;
+            string? message = null;
+            try
+            {
+                // Simulate saving to settings.json in app directory
+                var settings = new
+                {
+                    AgentId = _agentId,
+                    Name = _agentName,
+                    Timestamp = DateTimeOffset.UtcNow,
+                    Payload = payload
+                };
+                var json = System.Text.Json.JsonSerializer.Serialize(settings, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+                var path = Path.Combine(AppContext.BaseDirectory, "settings.json");
+                await File.WriteAllTextAsync(path, json);
+                ok = true;
+                message = $"Saved to {path}";
+            }
+            catch (Exception ex)
+            {
+                ok = false;
+                message = ex.Message;
+            }
+            finally
+            {
+                await _connection!.InvokeAsync("SaveCompleted", correlationId, ok, message);
+            }
+        });
     }
 
     private async Task PushUpdate(string cityId, double tempC, CancellationToken ct)
@@ -120,5 +169,12 @@ public class WeatherPollingService(ILogger<WeatherPollingService> logger, IConfi
         // small random drift
         var delta = (_random.NextDouble() - 0.5) * 0.8; // -0.4..+0.4
         return Math.Round(val + delta, 1);
+    }
+
+    private (string Name, double Temp) GetCityInfo(string cityId)
+    {
+        var name = _cities.FirstOrDefault(c => string.Equals(c.Id, cityId, StringComparison.OrdinalIgnoreCase)).Name ?? cityId;
+        var temp = _lastTemps.TryGetValue(cityId, out var t) ? t : BaseTempFor(cityId);
+        return (name, temp);
     }
 }

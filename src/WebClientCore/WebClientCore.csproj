@@ -8,4 +8,7 @@
     <ProjectReference Include="..\..\..\blazor-agent-core-signalr.ServiceDefaults\blazor-agent-core-signalr.ServiceDefaults.csproj" />
     <ProjectReference Include="..\\Contracts\\Contracts.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components" Version="4.12.1" />
+  </ItemGroup>
 </Project>

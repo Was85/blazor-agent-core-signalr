@@ -1,21 +1,27 @@
 @page "/"
 @inject WebClientCore.Services.IResourceRegistry Registry
 @using WebClientCore.State
+@inject WebClientCore.Services.IAgentBridge Bridge
 
-<div class="dashboard-header">
+<fluent-card class="dashboard-header">
     <div class="d-flex align-items-center justify-content-between">
-        <h1 class="dashboard-title">Agent Core Dashboard</h1>
+        <h1 class="dashboard-title m-0">Agent Core Dashboard</h1>
         <div class="d-flex gap-3 align-items-center">
             <span class="text-muted">Last update: <strong>@FormatTimeAgo(GetLatestUpdate())</strong></span>
-            <span class="badge stats-badge bg-primary">
-                <i class="bi bi-cpu me-1"></i>Agents: @(snapshot?.Agents.Count ?? 0)
-            </span>
-            <span class="badge stats-badge bg-info text-dark">
-                <i class="bi bi-geo-alt me-1"></i>Cities: @(snapshot?.Cities.Count ?? 0)
-            </span>
+            <fluent-badge appearance="accent">Agents: @(snapshot?.Agents.Count ?? 0)</fluent-badge>
+            <fluent-badge appearance="neutral">Cities: @(snapshot?.Cities.Count ?? 0)</fluent-badge>
         </div>
     </div>
-</div>
+    <div class="row g-3 mt-3">
+        <div class="col-12 col-lg-6">
+            <FluentTextField Placeholder="Search agents by name or ID" @bind-Value="searchAgents" Style="width:100%" />
+        </div>
+        <div class="col-12 col-lg-6">
+            <FluentTextField Placeholder="Search cities by name or ID" @bind-Value="searchCities" Style="width:100%" />
+        </div>
+    </div>
+    
+</fluent-card>
 
 <div class="row g-4 mb-4">
     <div class="col-12 col-lg-6">
@@ -40,14 +46,12 @@ else
 {
     <div class="row g-4">
         <div class="col-12 col-lg-6">
-            <div class="card h-100 shadow">
-                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0">
-                        <i class="bi bi-robot me-2"></i>Agents
-                    </h5>
-                    <span class="badge bg-light text-primary fs-6">@FilteredAgents.Count()</span>
+            <fluent-card class="h-100 shadow p-0" style="display:block;">
+                <div class="d-flex justify-content-between align-items-center p-3 border-bottom" style="background:var(--neutral-layer-2);border-top-left-radius:16px;border-top-right-radius:16px;">
+                    <h5 class="mb-0 d-flex align-items-center"><i class="bi bi-robot me-2"></i>Agents</h5>
+                    <fluent-badge appearance="neutral">@FilteredAgents.Count()</fluent-badge>
                 </div>
-                <div class="card-body p-0">
+                <div class="p-0">
                     <div class="table-responsive">
                         <table class="table table-hover mb-0">
                             <thead class="table-dark">
@@ -100,18 +104,16 @@ else
                         </table>
                     </div>
                 </div>
-            </div>
+            </fluent-card>
         </div>
 
         <div class="col-12 col-lg-6">
-            <div class="card h-100 shadow">
-                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0">
-                        <i class="bi bi-geo-alt me-2"></i>Cities
-                    </h5>
-                    <span class="badge bg-light text-success fs-6">@FilteredCities.Count()</span>
+            <fluent-card class="h-100 shadow p-0" style="display:block;">
+                <div class="d-flex justify-content-between align-items-center p-3 border-bottom" style="background:var(--neutral-layer-2);border-top-left-radius:16px;border-top-right-radius:16px;">
+                    <h5 class="mb-0 d-flex align-items-center"><i class="bi bi-geo-alt me-2"></i>Cities</h5>
+                    <fluent-badge appearance="accent">@FilteredCities.Count()</fluent-badge>
                 </div>
-                <div class="card-body p-0">
+                <div class="p-0">
                     <div class="table-responsive">
                         <table class="table table-hover mb-0">
                             <thead class="table-dark">
@@ -127,6 +129,9 @@ else
                                     </th>
                                     <th class="border-0 fw-semibold text-end">
                                         <i class="bi bi-arrow-repeat me-2"></i>Updated
+                                    </th>
+                                    <th class="border-0 fw-semibold text-end">
+                                        <i class="bi bi-eye me-2"></i>Actions
                                     </th>
                                 </tr>
                             </thead>
@@ -165,12 +170,17 @@ else
                                                 </span>
                                             }
                                         </td>
+                                        <td class="py-3 text-end">
+                                            <fluent-button appearance="accent" size="small" @onclick="() => ShowDetailsAsync(c.AgentId, c.CityId)">
+                                                Details
+                                            </fluent-button>
+                                        </td>
                                     </tr>
                                 }
                                 @if (!FilteredCities.Any())
                                 {
                                     <tr>
-                                        <td colspan="4" class="text-center text-muted py-5">
+                                        <td colspan="5" class="text-center text-muted py-5">
                                             <i class="bi bi-geo-alt display-6 mb-3 opacity-25"></i>
                                             <div>No cities match the filter</div>
                                             @if (!string.IsNullOrEmpty(searchCities))
@@ -184,9 +194,50 @@ else
                         </table>
                     </div>
                 </div>
-            </div>
+            </fluent-card>
         </div>
     </div>
+}
+
+@* Modal *@
+@if (modalOpen)
+{
+    <fluent-dialog modal="true" style="--dialog-width: 720px; --dialog-max-width: 90vw;">
+        <div class="p-3">
+            <h3 class="mb-2">City details</h3>
+            @if (!string.IsNullOrEmpty(modalSuccess))
+            {
+                <fluent-alert appearance="success" class="mb-2">@modalSuccess</fluent-alert>
+            }
+            @if (loadingModal)
+            {
+                <div class="d-flex flex-column align-items-center py-4">
+                    <fluent-progress-ring></fluent-progress-ring>
+                    <div class="text-muted mt-2">Loading...</div>
+                </div>
+            }
+            else if (!string.IsNullOrEmpty(modalError))
+            {
+                <fluent-alert appearance="error">@modalError</fluent-alert>
+            }
+            else if (modalHtml is not null)
+            {
+                @((MarkupString)(modalHtml ?? string.Empty))
+            }
+            else
+            {
+                <div class="text-muted">No content received.</div>
+            }
+        </div>
+        <div class="d-flex justify-content-end gap-2 p-3">
+            <fluent-button appearance="outline" @onclick="CloseModal">Close</fluent-button>
+            <fluent-button appearance="accent" disabled="@(loadingSave || !string.IsNullOrEmpty(modalSuccess))" @onclick="PerformSaveAsync">
+                @if (loadingSave)
+                {<fluent-progress-ring size="small" class="me-2"></fluent-progress-ring>}
+                Save
+            </fluent-button>
+        </div>
+    </fluent-dialog>
 }
 
 @code {
@@ -194,6 +245,14 @@ else
     private System.Timers.Timer? _tick;
     private string searchAgents = string.Empty;
     private string searchCities = string.Empty;
+    private bool modalOpen = false;
+    private bool loadingModal = false;
+    private bool loadingSave = false;
+    private string? modalHtml;
+    private string? modalError;
+    private string? modalAgentId;
+    private string? modalSuccess;
+    
 
     protected override void OnInitialized()
     {
@@ -210,6 +269,79 @@ else
     {
         snapshot = Registry.GetSnapshot();
         InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ShowDetailsAsync(string agentId, string cityId)
+    {
+        Console.WriteLine($"ShowDetailsAsync clicked for agent {agentId}, city {cityId}");
+        modalOpen = true;
+        loadingModal = true;
+        modalError = null;
+        modalHtml = null;
+        modalAgentId = agentId;
+        StateHasChanged();
+
+        try
+        {
+            modalHtml = await Bridge.RequestCityDetailsAsync(agentId, cityId, TimeSpan.FromSeconds(10));
+            Console.WriteLine($"Received modal HTML length: {modalHtml?.Length ?? 0}");
+        }
+        catch (Exception ex)
+        {
+            modalError = ex.Message;
+            Console.WriteLine($"ShowDetailsAsync error: {ex.Message}");
+        }
+        finally
+        {
+            loadingModal = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task PerformSaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(modalAgentId)) return;
+        Console.WriteLine($"PerformSaveAsync for agent {modalAgentId}");
+        loadingSave = true;
+        modalError = null;
+        modalSuccess = null;
+        StateHasChanged();
+        try
+        {
+            var result = await Bridge.RequestSaveAsync(modalAgentId, null, TimeSpan.FromSeconds(10));
+            if (!result.ok)
+            {
+                modalError = result.message ?? "Save failed";
+            }
+            else
+            {
+                modalSuccess = string.IsNullOrWhiteSpace(result.message) ? "Saved successfully." : result.message;
+                StateHasChanged();
+                await Task.Delay(1200);
+                CloseModal();
+                return;
+            }
+            Console.WriteLine($"Save result ok={result.ok}, message={result.message}");
+        }
+        catch (Exception ex)
+        {
+            modalError = ex.Message;
+            Console.WriteLine($"PerformSaveAsync error: {ex.Message}");
+        }
+        finally
+        {
+            loadingSave = false;
+            StateHasChanged();
+        }
+    }
+
+    private void CloseModal()
+    {
+        modalOpen = false;
+        modalHtml = null;
+        modalError = null;
+        modalAgentId = null;
+        modalSuccess = null;
     }
 
     IEnumerable<AgentState> FilteredAgents => (snapshot?.Agents ?? Array.Empty<AgentState>())

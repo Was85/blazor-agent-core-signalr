@@ -4,7 +4,7 @@ using WebClientCore.Services;
 
 namespace WebClientCore.Hubs;
 
-public class ResourceHub(IResourceRegistry registry, ILogger<ResourceHub> logger) : Hub
+public class ResourceHub(IResourceRegistry registry, IAgentBridge bridge, ILogger<ResourceHub> logger) : Hub
 {
     public override Task OnConnectedAsync()
     {
@@ -15,6 +15,7 @@ public class ResourceHub(IResourceRegistry registry, ILogger<ResourceHub> logger
     public override Task OnDisconnectedAsync(Exception? exception)
     {
         logger.LogInformation("Agent disconnected: {ConnectionId}. Exception: {Message}", Context.ConnectionId, exception?.Message);
+        bridge.OnAgentDisconnected(Context.ConnectionId);
         return base.OnDisconnectedAsync(exception);
     }
 
@@ -22,6 +23,7 @@ public class ResourceHub(IResourceRegistry registry, ILogger<ResourceHub> logger
     {
         logger.LogInformation("RegisterAgent: {AgentId} - {Name}", agent.AgentId, agent.Name);
         registry.UpsertAgent(agent.AgentId, agent.Name, agent.LastSeen);
+        bridge.OnAgentRegistered(agent.AgentId, Context.ConnectionId);
         return Task.CompletedTask;
     }
 
@@ -36,6 +38,19 @@ public class ResourceHub(IResourceRegistry registry, ILogger<ResourceHub> logger
     public Task PushWeatherUpdate(WeatherUpdate update)
     {
         registry.ApplyWeatherUpdate(update.CityId, update.AgentId, update.TemperatureC, update.Timestamp);
+        return Task.CompletedTask;
+    }
+
+    // Callbacks from agent
+    public Task ProvideCityDetails(string correlationId, string html)
+    {
+        bridge.DeliverCityDetails(correlationId, html);
+        return Task.CompletedTask;
+    }
+
+    public Task SaveCompleted(string correlationId, bool ok, string? message)
+    {
+        bridge.DeliverSaveResult(correlationId, ok, message);
         return Task.CompletedTask;
     }
 }
