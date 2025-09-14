@@ -1,3 +1,5 @@
+using System;
+
 namespace WebClientCore.State;
 
 public record AgentState(
