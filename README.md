@@ -1,51 +1,125 @@
-# Blazor Agent-Core SignalR
+# Blazor Agent Core SignalR
 
-Two Blazor Server apps demonstrating an Agent/Core architecture with SignalR:
-- WebClientCore: central registry that receives agent registrations and live resource updates (cities/temperatures) and displays them.
-- Agent: background worker inside a Blazor Server app that mocks a weather API for 3 cities and pushes temperature changes to WebClientCore via SignalR.
+A sample showcasing an agent-driven resource registry surfaced in a Blazor Server app, with live updates via SignalR. The Web client maintains a simple in-memory registry of Agents and the Cities they report, including last-seen timestamps and latest weather readings.
 
-## Projects
+Features
+- Blazor Server UI listing Agents and Cities with live updates
+- In-memory registry with change notifications
+- Simple state records: Agent, City weather, and a registry snapshot
+- SignalR-ready design to integrate with real-time agent updates
 
-- `src/Contracts` — shared DTOs (`AgentInfo`, `CityRegistration`, `WeatherUpdate`)
-- `src/WebClientCore` — SignalR hub `/hubs/resources`, in-memory registry, Blazor UI
-- `src/Agent` — connects to the hub, registers, and periodically pushes updates
+Project layout
+- src/WebClientCore: Blazor Server app that renders Agents and Cities
+- src/WebClientCore/Services: In-memory IResourceRegistry and implementation
+- src/WebClientCore/State: Records for AgentState, CityWeatherState, RegistrySnapshot
 
-## Run locally (requires .NET 8 SDK)
+Architecture overview
 
-Open two terminals:
+```mermaid
+graph TD
+    A[Agents] -- SignalR / HTTP --> B[Server Endpoints]
+    B --> C[IResourceRegistry (in-memory)]
+    C --> D[Blazor Components]
+    D --> E[UI: Agents & Cities Tables]
 
-```bash
-# Terminal 1: start the core
-dotnet run -p src/WebClientCore
-
-# Terminal 2: start the agent
-dotnet run -p src/Agent
+    subgraph WebClientCore
+      C
+      D
+      E
+    end
 ```
 
-Open the UI: http://localhost:5100
+Update flow (conceptual)
 
-You should see:
-- Agents list with one agent (your machine)
-- Cities list with New York, London, Tokyo
-- Temperatures updating every ~5 seconds
+```mermaid
+sequenceDiagram
+    participant Agent
+    participant Server
+    participant Registry as IResourceRegistry
+    participant UI as Blazor UI
 
-Ports:
-- WebClientCore: 5100
-- Agent: 5200
+    Agent->>Server: Upsert resources + weather
+    Server->>Registry: UpsertAgent / UpsertResources / ApplyWeatherUpdate
+    Registry-->>UI: Changed event
+    UI->>UI: StateHasChanged (re-render tables)
+```
 
-## Configuration
+State model
 
-Agent reads the hub URL and identity from configuration (env vars or appsettings):
+```mermaid
+classDiagram
+    class AgentState {
+      +string AgentId
+      +string Name
+      +DateTimeOffset LastSeen
+    }
 
-- `CoreHubUrl` (default: `http://localhost:5100/hubs/resources`)
-- `Agent:AgentId` (default: `agent-{MachineName}`)
-- `Agent:Name` (default: `Agent on {MachineName}`)
+    class CityWeatherState {
+      +string CityId
+      +string Name
+      +string AgentId
+      +double TemperatureC
+      +DateTimeOffset? LastUpdated
+    }
 
-## Architecture
+    class RegistrySnapshot {
+      +IReadOnlyList~AgentState~ Agents
+      +IReadOnlyList~CityWeatherState~ Cities
+    }
 
-See docs/architecture.md for Mermaid diagrams.
+    class IResourceRegistry {
+      +event Action Changed
+      +UpsertAgent(agentId, name, lastSeen) void
+      +UpsertResources(agentId, cities) void
+      +ApplyWeatherUpdate(cityId, agentId, temperatureC, timestamp) void
+      +GetSnapshot() RegistrySnapshot
+    }
 
-## Notes
+    class ResourceRegistry
 
-- UI uses the server-side in-memory registry; SignalR is used between Agent -> Core only.
-- For production, consider persistence, authentication (API keys), retries/backoff, and health checks.
+    IResourceRegistry  CityWeatherState
+```
+
+Getting started
+
+Prerequisites
+- .NET SDK 8.0 or later
+- Node.js (optional) if you add tooling that requires it
+
+Build and run
+- Clone the repository
+- Open the solution in Visual Studio / Rider or run from the CLI
+- From the repository root:
+  - dotnet build
+  - dotnet run --project src/WebClientCore/WebClientCore.csproj
+- Navigate to http://localhost:5000 or the URL shown in the console to see the Agents and Cities tables
+
+Seeding sample data (optional)
+If you don't yet have agents sending updates, you can seed a few rows during startup to visualize the UI.
+
+Add this snippet in src/WebClientCore/Program.cs after the app is built (var app = builder.Build();) and before app.Run():
+
+```csharp
+using (var scope = app.Services.CreateScope())
+{
+    var registry = scope.ServiceProvider.GetRequiredService```
+
+How it works
+- The ResourceRegistry keeps in-memory dictionaries for Agents and Cities and exposes a Changed event.
+- Blazor components (e.g., Pages/Index.razor) subscribe to Changed and call GetSnapshot() to re-render.
+- You can wire SignalR handlers to call UpsertAgent, UpsertResources, and ApplyWeatherUpdate when messages arrive.
+
+Extending the sample
+- Add a SignalR Hub and client to push real-time updates from agents
+- Persist registry state (e.g., Entity Framework Core, Redis)
+- Add paging, filtering, and sorting for large registries
+- Expose minimal APIs for testing and automation
+
+Contributing
+- Fork, create a feature branch, and open a PR
+- Include a short description, screenshots (optional), and a test plan
+- Keep the solution building on .NET 8
+- Prefer small, incremental PRs
+
+License
+Specify your preferred license (e.g., MIT) in a LICENSE file.
