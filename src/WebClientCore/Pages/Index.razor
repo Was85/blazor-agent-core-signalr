@@ -20,23 +20,27 @@
             <FluentTextField Placeholder="Search cities by name or ID" @bind-Value="searchCities" Style="width:100%" />
         </div>
     </div>
+    <div class="kpi-grid mt-3">
+        <div class="kpi-card">
+            <div class="kpi-label"><i class="bi bi-people me-2"></i>Agents</div>
+            <div class="kpi-value">@TotalAgents</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label"><i class="bi bi-building me-2"></i>Cities</div>
+            <div class="kpi-value">@TotalCities</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label"><i class="bi bi-thermometer-half me-2"></i>Avg Temp</div>
+            <div class="kpi-value">@AvgTempDisplay</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label"><i class="bi bi-broadcast-pin me-2"></i>Active (5m)</div>
+            <div class="kpi-value">@ActiveAgentsLast5m</div>
+        </div>
+    </div>
     
 </fluent-card>
 
-<div class="row g-4 mb-4">
-    <div class="col-12 col-lg-6">
-        <div class="form-floating">
-            <input @bind="searchAgents" class="form-control" id="searchAgents" placeholder="Search agents..." />
-            <label for="searchAgents"><i class="bi bi-search me-2"></i>Search agents by name or ID</label>
-        </div>
-    </div>
-    <div class="col-12 col-lg-6">
-        <div class="form-floating">
-            <input @bind="searchCities" class="form-control" id="searchCities" placeholder="Search cities..." />
-            <label for="searchCities"><i class="bi bi-search me-2"></i>Search cities by name or ID</label>
-        </div>
-    </div>
-</div>
 
 @if (snapshot is null)
 {
@@ -204,7 +208,20 @@ else
 {
     <fluent-dialog modal="true" style="--dialog-width: 720px; --dialog-max-width: 90vw;">
         <div class="p-3">
-            <h3 class="mb-2">City details</h3>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h3 class="mb-0">City details</h3>
+                <div class="text-end">
+                    <div class="fw-semibold">@modalCityName</div>
+                    <small class="text-muted">
+                        <code class="bg-light text-muted px-1 rounded">@modalCityId</code>
+                        
+                        @if (!string.IsNullOrWhiteSpace(modalAgentId))
+                        {
+                            <span class="ms-2">• Agent: <code class="bg-primary text-white px-1 rounded">@modalAgentId</code></span>
+                        }
+                    </small>
+                </div>
+            </div>
             @if (!string.IsNullOrEmpty(modalSuccess))
             {
                 <fluent-alert appearance="success" class="mb-2">@modalSuccess</fluent-alert>
@@ -230,6 +247,11 @@ else
             }
         </div>
         <div class="d-flex justify-content-end gap-2 p-3">
+            <fluent-button appearance="neutral" disabled="@loadingModal" @onclick="RefreshDetailsAsync">
+                @if (loadingModal)
+                {<fluent-progress-ring size="small" class="me-2"></fluent-progress-ring>}
+                Refresh
+            </fluent-button>
             <fluent-button appearance="outline" @onclick="CloseModal">Close</fluent-button>
             <fluent-button appearance="accent" disabled="@(loadingSave || !string.IsNullOrEmpty(modalSuccess))" @onclick="PerformSaveAsync">
                 @if (loadingSave)
@@ -251,6 +273,8 @@ else
     private string? modalHtml;
     private string? modalError;
     private string? modalAgentId;
+    private string? modalCityId;
+    private string? modalCityName;
     private string? modalSuccess;
     
 
@@ -279,6 +303,8 @@ else
         modalError = null;
         modalHtml = null;
         modalAgentId = agentId;
+        modalCityId = cityId;
+        modalCityName = snapshot?.Cities.FirstOrDefault(c => string.Equals(c.CityId, cityId, StringComparison.OrdinalIgnoreCase))?.Name ?? cityId;
         StateHasChanged();
 
         try
@@ -290,6 +316,27 @@ else
         {
             modalError = ex.Message;
             Console.WriteLine($"ShowDetailsAsync error: {ex.Message}");
+        }
+        finally
+        {
+            loadingModal = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RefreshDetailsAsync()
+    {
+        if (string.IsNullOrWhiteSpace(modalAgentId) || string.IsNullOrWhiteSpace(modalCityId)) return;
+        loadingModal = true;
+        modalError = null;
+        StateHasChanged();
+        try
+        {
+            modalHtml = await Bridge.RequestCityDetailsAsync(modalAgentId, modalCityId, TimeSpan.FromSeconds(10));
+        }
+        catch (Exception ex)
+        {
+            modalError = ex.Message;
         }
         finally
         {
@@ -341,6 +388,8 @@ else
         modalHtml = null;
         modalError = null;
         modalAgentId = null;
+        modalCityId = null;
+        modalCityName = null;
         modalSuccess = null;
     }
 
@@ -359,6 +408,22 @@ else
     private static string TempClass(double t)
         => t switch { <= 0 => "bg-primary text-white", < 15 => "bg-info text-dark", < 25 => "bg-success",
                        < 32 => "bg-warning text-dark", _ => "bg-danger" };
+
+    private int TotalAgents => snapshot?.Agents.Count ?? 0;
+    private int TotalCities => snapshot?.Cities.Count ?? 0;
+    private int ActiveAgentsLast5m
+        => snapshot?.Agents.Count(a => (DateTimeOffset.UtcNow - a.LastSeen).TotalMinutes <= 5) ?? 0;
+    private string AvgTempDisplay
+    {
+        get
+        {
+            if (snapshot?.Cities is null) return "—";
+            var temps = snapshot.Cities.Where(c => c.LastUpdated is not null).Select(c => (double?)c.TemperatureC).ToList();
+            if (temps.Count == 0) return "—";
+            var avg = temps.Average() ?? 0;
+            return $"{avg:0.0}°C";
+        }
+    }
 
     private DateTimeOffset? GetLatestUpdate()
     {
