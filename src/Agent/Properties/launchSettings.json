@@ -1,0 +1,1 @@
+{"profiles":{"Agent":{"commandName":"Project","dotnetRunMessages":true,"applicationUrl":"http://localhost:5200","environmentVariables":{"ASPNETCORE_ENVIRONMENT":"Development","CoreHubUrl":"http://localhost:5100/hubs/resources"}}}}
