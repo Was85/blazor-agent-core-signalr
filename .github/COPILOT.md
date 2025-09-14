@@ -28,7 +28,7 @@ Pull requests
   - Acceptance criteria addressed
   - Test plan with steps to validate
   - Any config or migrations required
-- Mark large or multi-step tasks as [WIP] and convert to "Ready for review" when complete.
+- Mark large or multi-step tasks as [WIP] and convert to “Ready for review” when complete.
 
 Common tasks
 - State/model additions: place records in src/WebClientCore/State and keep them immutable.
@@ -65,4 +65,4 @@ Knowledge for this repo
 When adding SignalR integration
 - Place hubs under a Hubs folder
 - Map hub routes in Program.cs (app.MapHub<THub>("/hubRoute"))
-- Add a scoped service to translate hub messages into registry operations
+- Add a scoped service to translate hub messages into registry operations.

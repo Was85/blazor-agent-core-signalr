@@ -77,7 +77,9 @@ classDiagram
 
     class ResourceRegistry
 
-    IResourceRegistry  CityWeatherState
+    IResourceRegistry <|.. ResourceRegistry
+    RegistrySnapshot o--> AgentState
+    RegistrySnapshot o--> CityWeatherState
 ```
 
 Getting started
@@ -95,14 +97,27 @@ Build and run
 - Navigate to http://localhost:5000 or the URL shown in the console to see the Agents and Cities tables
 
 Seeding sample data (optional)
-If you don't yet have agents sending updates, you can seed a few rows during startup to visualize the UI.
+If you don’t yet have agents sending updates, you can seed a few rows during startup to visualize the UI.
 
 Add this snippet in src/WebClientCore/Program.cs after the app is built (var app = builder.Build();) and before app.Run():
 
 ```csharp
 using (var scope = app.Services.CreateScope())
 {
-    var registry = scope.ServiceProvider.GetRequiredService```
+    var registry = scope.ServiceProvider.GetRequiredService<WebClientCore.Services.IResourceRegistry>();
+
+    var agentId = "agent-local";
+    registry.UpsertAgent(agentId, "Local Agent", DateTimeOffset.UtcNow);
+    registry.UpsertResources(agentId, new[] {
+        (CityId: "SEA", Name: "Seattle"),
+        (CityId: "NYC", Name: "New York"),
+        (CityId: "LDN", Name: "London"),
+    });
+
+    registry.ApplyWeatherUpdate("SEA", agentId, 21.5, DateTimeOffset.UtcNow);
+    registry.ApplyWeatherUpdate("NYC", agentId, 24.2, DateTimeOffset.UtcNow);
+}
+```
 
 How it works
 - The ResourceRegistry keeps in-memory dictionaries for Agents and Cities and exposes a Changed event.
