@@ -1,0 +1,5 @@
+/* minimal styles */
+.page { display: grid; grid-template-columns: 250px 1fr; min-height: 100vh; }
+.sidebar { background: #f8f9fa; }
+.top-row { border-bottom: 1px solid #dee2e6; height: 3.5rem; display: flex; align-items: center; }
+.content { padding-bottom: 2rem; }
