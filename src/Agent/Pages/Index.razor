@@ -1,0 +1,21 @@
+@page "\/"
+@inject Agent.Services.AgentStatus Status
+
+<h3>Agent Status</h3>
+<p>Connection: <b>@Status.ConnectionState</b></p>
+<p>Last Message: @Status.LastMessage</p>
+<p>Updated: @Status.LastUpdateAt?.ToString("u")</p>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Status.Changed += OnChanged;
+    }
+
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Status.Changed -= OnChanged;
+    }
+}
