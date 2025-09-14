@@ -1,10 +1,25 @@
-@page "\/"
+@page "/"
 @inject Agent.Services.AgentStatus Status
 
-<h3>Agent Status</h3>
-<p>Connection: <b>@Status.ConnectionState</b></p>
-<p>Last Message: @Status.LastMessage</p>
-<p>Updated: @Status.LastUpdateAt?.ToString("u")</p>
+<div class="agent-card card shadow-sm mt-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <strong>Agent Status</strong>
+        <span class="badge @(BadgeClass(Status.ConnectionState))">@Status.ConnectionState</span>
+    </div>
+    <div class="card-body">
+        <div class="d-flex align-items-center mb-2">
+            <span class="status-dot @(DotClass(Status.ConnectionState))" title="Connection state"></span>
+            <div>
+                <div class="small-muted">Last message</div>
+                <div>@(string.IsNullOrWhiteSpace(Status.LastMessage) ? "—" : Status.LastMessage)</div>
+            </div>
+        </div>
+
+        <div class="text-end small text-muted">
+            Updated: @FormatTimeAgo(Status.LastUpdateAt)
+        </div>
+    </div>
+</div>
 
 @code {
     protected override void OnInitialized()
@@ -13,6 +28,24 @@
     }
 
     private void OnChanged() => InvokeAsync(StateHasChanged);
+
+    private static string BadgeClass(string state) => state.Equals("Connected", StringComparison.OrdinalIgnoreCase)
+        ? "bg-success" : state.Equals("Connecting", StringComparison.OrdinalIgnoreCase)
+        ? "bg-warning text-dark" : "bg-danger";
+
+    private static string DotClass(string state) => state.Equals("Connected", StringComparison.OrdinalIgnoreCase)
+        ? "status-dot status-connected" : "status-dot status-disconnected";
+
+    private static string FormatTimeAgo(DateTimeOffset? time)
+    {
+        if (time is null) return "never";
+        var delta = DateTimeOffset.UtcNow - time.Value.ToUniversalTime();
+        if (delta.TotalSeconds < 10) return "just now";
+        if (delta.TotalMinutes < 1) return $"{(int)delta.TotalSeconds}s ago";
+        if (delta.TotalHours < 1) return $"{(int)delta.TotalMinutes}m ago";
+        if (delta.TotalDays < 1) return $"{(int)delta.TotalHours}h ago";
+        return $"{(int)delta.TotalDays}d ago";
+    }
 
     public void Dispose()
     {

@@ -8,6 +8,7 @@
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="8.0.0" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\..\blazor-agent-core-signalr.ServiceDefaults\blazor-agent-core-signalr.ServiceDefaults.csproj" />
     <ProjectReference Include="..\\Contracts\\Contracts.csproj" />
   </ItemGroup>
 </Project>

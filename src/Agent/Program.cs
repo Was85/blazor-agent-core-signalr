@@ -2,6 +2,8 @@ using Agent.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.AddServiceDefaults();
+
 // Configuration defaults
 builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
 {
@@ -20,6 +22,8 @@ builder.Services.AddSingleton<AgentStatus>();
 builder.Services.AddHostedService<WeatherPollingService>();
 
 var app = builder.Build();
+
+app.MapDefaultEndpoints();
 
 if (!app.Environment.IsDevelopment())
 {

@@ -1,0 +1,6 @@
+/* Agent UI styles */
+.agent-card { max-width: 720px; margin: 0 auto; }
+.status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: .5rem; }
+.status-connected { background: #28a745; }
+.status-disconnected { background: #dc3545; }
+.small-muted { font-size: .9rem; color: #6c757d; }

@@ -1,0 +1,257 @@
+@page "/"
+@inject WebClientCore.Services.IResourceRegistry Registry
+@using WebClientCore.State
+
+<div class="dashboard-header">
+    <div class="d-flex align-items-center justify-content-between">
+        <h1 class="dashboard-title">Agent Core Dashboard</h1>
+        <div class="d-flex gap-3 align-items-center">
+            <span class="text-muted">Last update: <strong>@FormatTimeAgo(GetLatestUpdate())</strong></span>
+            <span class="badge stats-badge bg-primary">
+                <i class="bi bi-cpu me-1"></i>Agents: @(snapshot?.Agents.Count ?? 0)
+            </span>
+            <span class="badge stats-badge bg-info text-dark">
+                <i class="bi bi-geo-alt me-1"></i>Cities: @(snapshot?.Cities.Count ?? 0)
+            </span>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-12 col-lg-6">
+        <div class="form-floating">
+            <input @bind="searchAgents" class="form-control" id="searchAgents" placeholder="Search agents..." />
+            <label for="searchAgents"><i class="bi bi-search me-2"></i>Search agents by name or ID</label>
+        </div>
+    </div>
+    <div class="col-12 col-lg-6">
+        <div class="form-floating">
+            <input @bind="searchCities" class="form-control" id="searchCities" placeholder="Search cities..." />
+            <label for="searchCities"><i class="bi bi-search me-2"></i>Search cities by name or ID</label>
+        </div>
+    </div>
+</div>
+
+@if (snapshot is null)
+{
+    <div class="alert alert-secondary">Waiting for data...</div>
+}
+else
+{
+    <div class="row g-4">
+        <div class="col-12 col-lg-6">
+            <div class="card h-100 shadow">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-robot me-2"></i>Agents
+                    </h5>
+                    <span class="badge bg-light text-primary fs-6">@FilteredAgents.Count()</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th class="border-0 fw-semibold">
+                                        <i class="bi bi-person-badge me-2"></i>Name
+                                    </th>
+                                    <th class="border-0 fw-semibold">
+                                        <i class="bi bi-tag me-2"></i>Agent ID
+                                    </th>
+                                    <th class="border-0 fw-semibold text-end">
+                                        <i class="bi bi-clock me-2"></i>Last Seen
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var a in FilteredAgents)
+                                {
+                                    <tr class="table-row-animated">
+                                        <td class="py-3">
+                                            <div class="d-flex align-items-center">
+                                                <div class="live-dot me-3"></div>
+                                                <span class="fw-semibold text-primary">@a.Name</span>
+                                            </div>
+                                        </td>
+                                        <td class="py-3">
+                                            <code class="bg-light text-dark px-2 py-1 rounded">@a.AgentId</code>
+                                        </td>
+                                        <td class="py-3 text-end">
+                                            <span class="text-muted" title='@a.LastSeen.ToString("u")'>
+                                                <i class="bi bi-clock-history me-1"></i>@FormatTimeAgo(a.LastSeen)
+                                            </span>
+                                        </td>
+                                    </tr>
+                                }
+                                @if (!FilteredAgents.Any())
+                                {
+                                    <tr>
+                                        <td colspan="3" class="text-center text-muted py-5">
+                                            <i class="bi bi-robot display-6 mb-3 opacity-25"></i>
+                                            <div>No agents match the filter</div>
+                                            @if (!string.IsNullOrEmpty(searchAgents))
+                                            {
+                                                <small class="text-muted">Try adjusting your search criteria</small>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-6">
+            <div class="card h-100 shadow">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-geo-alt me-2"></i>Cities
+                    </h5>
+                    <span class="badge bg-light text-success fs-6">@FilteredCities.Count()</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th class="border-0 fw-semibold">
+                                        <i class="bi bi-building me-2"></i>City
+                                    </th>
+                                    <th class="border-0 fw-semibold text-end">
+                                        <i class="bi bi-thermometer me-2"></i>Temperature
+                                    </th>
+                                    <th class="border-0 fw-semibold">
+                                        <i class="bi bi-robot me-2"></i>Agent
+                                    </th>
+                                    <th class="border-0 fw-semibold text-end">
+                                        <i class="bi bi-arrow-repeat me-2"></i>Updated
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var c in FilteredCities)
+                                {
+                                    var updated = c.LastUpdated;
+                                    <tr class="table-row-animated">
+                                        <td class="py-3">
+                                            <div>
+                                                <div class="fw-semibold text-success">@c.Name</div>
+                                                <small class="text-muted">
+                                                    <code class="bg-light text-muted px-1 rounded">@c.CityId</code>
+                                                </small>
+                                            </div>
+                                        </td>
+                                        <td class="py-3 text-end">
+                                            <span class="badge fs-6 temp-badge @(TempClass(c.TemperatureC))">
+                                                <i class="bi bi-thermometer-half me-1"></i>@c.TemperatureC.ToString("0.0")°C
+                                            </span>
+                                        </td>
+                                        <td class="py-3">
+                                            <code class="bg-primary text-white px-2 py-1 rounded">@c.AgentId</code>
+                                        </td>
+                                        <td class="py-3 text-end">
+                                            @if (updated is null)
+                                            {
+                                                <span class="text-muted">
+                                                    <i class="bi bi-dash-circle me-1"></i>Never
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted" title='@updated.Value.ToString("u")'>
+                                                    <i class="bi bi-clock-history me-1"></i>@FormatTimeAgo(updated)
+                                                </span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                                @if (!FilteredCities.Any())
+                                {
+                                    <tr>
+                                        <td colspan="4" class="text-center text-muted py-5">
+                                            <i class="bi bi-geo-alt display-6 mb-3 opacity-25"></i>
+                                            <div>No cities match the filter</div>
+                                            @if (!string.IsNullOrEmpty(searchCities))
+                                            {
+                                                <small class="text-muted">Try adjusting your search criteria</small>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private RegistrySnapshot? snapshot;
+    private System.Timers.Timer? _tick;
+    private string searchAgents = string.Empty;
+    private string searchCities = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        Registry.Changed += OnChanged;
+        snapshot = Registry.GetSnapshot();
+
+        _tick = new System.Timers.Timer(15000); // refresh every 15s for relative time
+        _tick.Elapsed += (_, _) => InvokeAsync(StateHasChanged);
+        _tick.AutoReset = true;
+        _tick.Start();
+    }
+
+    private void OnChanged()
+    {
+        snapshot = Registry.GetSnapshot();
+        InvokeAsync(StateHasChanged);
+    }
+
+    IEnumerable<AgentState> FilteredAgents => (snapshot?.Agents ?? Array.Empty<AgentState>())
+        .Where(a => string.IsNullOrWhiteSpace(searchAgents)
+            || a.Name.Contains(searchAgents, StringComparison.OrdinalIgnoreCase)
+            || a.AgentId.Contains(searchAgents, StringComparison.OrdinalIgnoreCase))
+        .OrderByDescending(a => a.LastSeen);
+
+    IEnumerable<CityWeatherState> FilteredCities => (snapshot?.Cities ?? Array.Empty<CityWeatherState>())
+        .Where(c => string.IsNullOrWhiteSpace(searchCities)
+            || c.Name.Contains(searchCities, StringComparison.OrdinalIgnoreCase)
+            || c.CityId.Contains(searchCities, StringComparison.OrdinalIgnoreCase))
+        .OrderByDescending(c => c.LastUpdated ?? DateTimeOffset.MinValue);
+
+    private static string TempClass(double t)
+        => t switch { <= 0 => "bg-primary text-white", < 15 => "bg-info text-dark", < 25 => "bg-success",
+                       < 32 => "bg-warning text-dark", _ => "bg-danger" };
+
+    private DateTimeOffset? GetLatestUpdate()
+    {
+        if (snapshot is null) return null;
+        var latestCity = snapshot.Cities.Select(c => c.LastUpdated ?? DateTimeOffset.MinValue).DefaultIfEmpty(DateTimeOffset.MinValue).Max();
+        var latestAgent = snapshot.Agents.Select(a => a.LastSeen).DefaultIfEmpty(DateTimeOffset.MinValue).Max();
+        var latest = latestCity > latestAgent ? latestCity : latestAgent;
+        return latest == DateTimeOffset.MinValue ? null : latest;
+    }
+
+    private static string FormatTimeAgo(DateTimeOffset? time)
+    {
+        if (time is null) return "never";
+        var delta = DateTimeOffset.UtcNow - time.Value.ToUniversalTime();
+        if (delta.TotalSeconds < 10) return "just now";
+        if (delta.TotalMinutes < 1) return $"{(int)delta.TotalSeconds}s ago";
+        if (delta.TotalHours < 1) return $"{(int)delta.TotalMinutes}m ago";
+        if (delta.TotalDays < 1) return $"{(int)delta.TotalHours}h ago";
+        return $"{(int)delta.TotalDays}d ago";
+    }
+
+    public void Dispose()
+    {
+        Registry.Changed -= OnChanged;
+        _tick?.Stop();
+        _tick?.Dispose();
+    }
+}
